@@ -16,8 +16,8 @@
 
 #include <stdio.h>
 #include <iostream>
-//#include "imgui.h"
-//#include "imgui_impl_glfw_gl3.h"
+#include "imgui.h"
+#include "imgui_impl_glfw_gl3.h"
 
 #include "nanovg.h"
 #define NANOVG_GL3_IMPLEMENTATION
@@ -108,11 +108,16 @@ void frame(NVGcontext* vg, float width, float height, float mx, float my) {
     const int N = 100;
     const float pi = 3.14;
     nvgBeginPath(vg);
-    for (int i = 0; i < N; ++i) {
+    const float x = 0.05 * width;
+    const float y = 0.5 * height;
+
+    nvgMoveTo(vg, x, y);
+    for (int i = 1; i < N; ++i) {
         const float x = 0.9 * width * i / N + 0.05 * width;
         const float y =
-            0.5 * height + 0.3 * height * std::sin(2 * pi * x / width);
-        nvgLineTo(vg, x, y + 0.5 * height);
+            0.5 * height +
+            0.3 * height * std::sin(2 * pi * (x - 0.05 * width) / width);
+        nvgLineTo(vg, x, y);
     }
     nvgStrokeColor(vg, nvgRGBA(32, 32, 32, 255));
     nvgStrokeWidth(vg, 10.0f);
@@ -125,13 +130,31 @@ void frame(NVGcontext* vg, float width, float height, float mx, float my) {
 
     drawEyes(vg, width - 250, 50, 150, 100, mx, my, 0);
 
+    // 1. Show a simple window.
+    // Tip: if we don't call ImGui::Begin()/ImGui::End() the widgets
+    // automatically appears in a window called "Debug".
+    {
+        static float f = 0.0f;
+        static int counter = 0;
+        ImGui::Text("Hello, world!");  // Display some text (you can use a
+                                       // format string too)
+        ImGui::SliderFloat(
+            "float", &f, 0.0f,
+            1.0f);  // Edit 1 float using a slider from 0.0f to 1.0f
+
+        ImGui::SameLine();
+        ImGui::Text("counter = %d", 0);
+
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
+                    1000.0f / ImGui::GetIO().Framerate,
+                    ImGui::GetIO().Framerate);
+    }
+
     // 2. Show another simple window. In most cases you will use an explicit
     // Begin/End pair to name your windows.
-    /*
     ImGui::Begin("Another Window");
     ImGui::Text("Hello from another window!");
     ImGui::End();
-    */
 }
 
 GLFWwindow* create_window() {
@@ -158,7 +181,6 @@ GLFWwindow* create_window() {
     return window;
 }
 
-/*
 void init_imgui(GLFWwindow* window) {
     // Setup Dear ImGui binding
     IMGUI_CHECKVERSION();
@@ -173,7 +195,6 @@ void init_imgui(GLFWwindow* window) {
     // Setup style
     ImGui::StyleColorsDark();
 }
-*/
 
 NVGcontext* init_nanovg() {
     return nvgCreateGL3(NVG_ANTIALIAS | NVG_STENCIL_STROKES | NVG_DEBUG);
@@ -181,7 +202,7 @@ NVGcontext* init_nanovg() {
 
 void begin_frame(GLFWwindow* window, NVGcontext* vg) {
     glfwPollEvents();
-    // ImGui_ImplGlfwGL3_NewFrame();
+    ImGui_ImplGlfwGL3_NewFrame();
 
     int winWidth, winHeight;
     int fbWidth, fbHeight;
@@ -202,17 +223,17 @@ void begin_frame(GLFWwindow* window, NVGcontext* vg) {
 }
 
 void end_frame(GLFWwindow* window, NVGcontext* vg) {
-    // ImGui::Render();
-    // ImGui_ImplGlfwGL3_RenderDrawData(ImGui::GetDrawData());
     nvgEndFrame(vg);
+    ImGui::Render();
+    ImGui_ImplGlfwGL3_RenderDrawData(ImGui::GetDrawData());
     // Rendering
     glfwSwapBuffers(window);
 }
 
 void finalise(GLFWwindow* window, NVGcontext* vg) {
     // Cleanup
-    // ImGui_ImplGlfwGL3_Shutdown();
-    // ImGui::DestroyContext();
+    ImGui_ImplGlfwGL3_Shutdown();
+    ImGui::DestroyContext();
 
     nvgDeleteGL3(vg);
 
@@ -222,7 +243,7 @@ void finalise(GLFWwindow* window, NVGcontext* vg) {
 
 int main(int, char**) {
     GLFWwindow* window = create_window();
-    // init_imgui(window);
+    init_imgui(window);
     NVGcontext* vg = init_nanovg();
 
     if (!window) return 1;
