@@ -121,7 +121,7 @@ void frame(NVGcontext* vg, float width, float height, float mx, float my) {
 
     static float freq1 = 1.0f;
     static float freq2 = 2.0f;
-    drawPlot(vg, axis_minmax, plot_minmax, 1000, [&](auto x) {
+    drawPlot(vg, axis_window, plot_minmax, 1000, [&](auto x) {
         return std::sin(freq1 * 6.28 * x) * std::sin(freq2 * 6.28 * x);
     });
 
