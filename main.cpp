@@ -188,7 +188,7 @@ GLFWwindow* create_window() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
     GLFWwindow* window =
-        glfwCreateWindow(1280, 720, "ImGui GLFW+OpenGL3 example", NULL, NULL);
+        glfwCreateWindow(1280, 720, "C++ Plotting Test", NULL, NULL);
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);  // Enable vsync
     // gl3wInit();
@@ -196,7 +196,8 @@ GLFWwindow* create_window() {
     if (!gladLoadGL()) {
         exit(-1);
     }
-    printf("OpenGL Version %d.%d loaded", GLVersion.major, GLVersion.minor);
+    std::cout << "OpenGL Version " << GLVersion.major << '.' << GLVersion.minor
+              << std::endl;
 
     return window;
 }
