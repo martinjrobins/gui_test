@@ -15,6 +15,7 @@
 #include <GLFW/glfw3.h>
 
 #include <stdio.h>
+#include <array>
 #include <iostream>
 #include "imgui.h"
 #include "imgui_impl_glfw_gl3.h"
@@ -29,131 +30,107 @@ static void glfw_error_callback(int error, const char* description) {
     fprintf(stderr, "Error %d: %s\n", error, description);
 }
 
-void drawEyes(NVGcontext* vg, float x, float y, float w, float h, float mx,
-              float my, float t) {
-    NVGpaint gloss, bg;
-    float ex = w * 0.23f;
-    float ey = h * 0.5f;
-    float lx = x + ex;
-    float ly = y + ey;
-    float rx = x + w - ex;
-    float ry = y + ey;
-    float dx, dy, d;
-    float br = (ex < ey ? ex : ey) * 0.5f;
-    float blink = 1 - pow(sinf(t * 0.5f), 200) * 0.8f;
+void drawAxis(NVGcontext* vg, std::array<float, 4> window,
+              std::array<float, 4> minmax) {
+    const float& x = window[0];
+    const float& y = window[1];
+    const float& w = window[2];
+    const float& h = window[3];
 
-    bg = nvgLinearGradient(vg, x, y + h * 0.5f, x + w * 0.1f, y + h,
-                           nvgRGBA(0, 0, 0, 32), nvgRGBA(0, 0, 0, 16));
+    nvgSave(vg);
+
+    // axis lines
+    const float lw = 5.0f;
     nvgBeginPath(vg);
-    nvgEllipse(vg, lx + 3.0f, ly + 16.0f, ex, ey);
-    nvgEllipse(vg, rx + 3.0f, ry + 16.0f, ex, ey);
-    nvgFillPaint(vg, bg);
-    nvgFill(vg);
+    nvgMoveTo(vg, x - lw / 2, y + h);
+    nvgLineTo(vg, x + w, y + h);
+    nvgMoveTo(vg, x, y + h + lw / 2);
+    nvgLineTo(vg, x, y);
+    nvgStrokeColor(vg, nvgRGBA(0, 0, 0, 255));
+    nvgStrokeWidth(vg, lw);
+    nvgStroke(vg);
 
-    bg = nvgLinearGradient(vg, x, y + h * 0.25f, x + w * 0.1f, y + h,
-                           nvgRGBA(220, 220, 220, 255),
-                           nvgRGBA(128, 128, 128, 255));
+    // drop shadow
     nvgBeginPath(vg);
-    nvgEllipse(vg, lx, ly, ex, ey);
-    nvgEllipse(vg, rx, ry, ex, ey);
-    nvgFillPaint(vg, bg);
-    nvgFill(vg);
+    nvgMoveTo(vg, x - lw, y + h + lw / 2);
+    nvgLineTo(vg, x + w - lw / 2, y + h + lw / 2);
+    nvgMoveTo(vg, x - lw / 2, y + h + lw);
+    nvgLineTo(vg, x - lw / 2, y + lw / 2);
+    nvgStrokeColor(vg, nvgRGBA(0, 0, 0, 20));
+    nvgStrokeWidth(vg, lw);
+    nvgStroke(vg);
 
-    dx = (mx - rx) / (ex * 10);
-    dy = (my - ry) / (ey * 10);
-    d = sqrtf(dx * dx + dy * dy);
-    if (d > 1.0f) {
-        dx /= d;
-        dy /= d;
+    nvgRestore(vg);
+}
+
+template <typename F>
+void drawPlot(NVGcontext* vg, std::array<float, 4> window,
+              std::array<float, 4> minmax, int N, F f) {
+    const float& x = window[0];
+    const float& y = window[1];
+    const float& w = window[2];
+    const float& h = window[3];
+
+    const float& xmin = minmax[0];
+    const float& ymin = minmax[1];
+    const float& xmax = minmax[2];
+    const float& ymax = minmax[3];
+    const float inv_yh = 1.0 / (ymax - ymin);
+    const float xw = 1.0 / (xmax - xmin);
+
+    nvgSave(vg);
+
+    const float plot_y = f(xmin);
+    const float win_y = y + h * (1 - (plot_y - ymin) * inv_yh);
+    nvgBeginPath(vg);
+    nvgMoveTo(vg, x, win_y);
+    for (int i = 1; i < N; ++i) {
+        const float plot_x = xmin + xw * i / N;
+        const float plot_y = f(plot_x);
+        const float win_x = x + w * i / N;
+        const float win_y = y + h * (1 - (plot_y - ymin) * inv_yh);
+        nvgLineTo(vg, win_x, win_y);
     }
-    dx *= ex * 0.4f;
-    dy *= ey * 0.5f;
-    nvgBeginPath(vg);
-    nvgEllipse(vg, lx + dx, ly + dy + ey * 0.25f * (1 - blink), br, br * blink);
-    nvgFillColor(vg, nvgRGBA(32, 32, 32, 255));
-    nvgFill(vg);
+    nvgStrokeColor(vg, nvgRGBA(0, 50, 100, 200));
+    nvgStrokeWidth(vg, 3.0f);
+    nvgStroke(vg);
 
-    dx = (mx - rx) / (ex * 10);
-    dy = (my - ry) / (ey * 10);
-    d = sqrtf(dx * dx + dy * dy);
-    if (d > 1.0f) {
-        dx /= d;
-        dy /= d;
+    // attempt to do a drop shadow for the line
+    const float offset = 1.5f;
+    nvgBeginPath(vg);
+    nvgMoveTo(vg, x, win_y);
+    for (int i = 1; i < N; ++i) {
+        const float plot_x = xmin + xw * i / N;
+        const float plot_y = f(plot_x);
+        const float win_x = x + w * i / N;
+        const float win_y = y + h * (1 - (plot_y - ymin) * inv_yh);
+        nvgLineTo(vg, win_x - offset, win_y + offset);
     }
-    dx *= ex * 0.4f;
-    dy *= ey * 0.5f;
-    nvgBeginPath(vg);
-    nvgEllipse(vg, rx + dx, ry + dy + ey * 0.25f * (1 - blink), br, br * blink);
-    nvgFillColor(vg, nvgRGBA(32, 32, 32, 255));
-    nvgFill(vg);
+    nvgStrokeColor(vg, nvgRGBA(0, 0, 0, 30));
+    nvgStrokeWidth(vg, 3.0f);
+    nvgStroke(vg);
 
-    gloss = nvgRadialGradient(vg, lx - ex * 0.25f, ly - ey * 0.5f, ex * 0.1f,
-                              ex * 0.75f, nvgRGBA(255, 255, 255, 128),
-                              nvgRGBA(255, 255, 255, 0));
-    nvgBeginPath(vg);
-    nvgEllipse(vg, lx, ly, ex, ey);
-    nvgFillPaint(vg, gloss);
-    nvgFill(vg);
-
-    gloss = nvgRadialGradient(vg, rx - ex * 0.25f, ry - ey * 0.5f, ex * 0.1f,
-                              ex * 0.75f, nvgRGBA(255, 255, 255, 128),
-                              nvgRGBA(255, 255, 255, 0));
-    nvgBeginPath(vg);
-    nvgEllipse(vg, rx, ry, ex, ey);
-    nvgFillPaint(vg, gloss);
-    nvgFill(vg);
+    nvgRestore(vg);
 }
 
 void frame(NVGcontext* vg, float width, float height, float mx, float my) {
-    const int N = 100;
-    const float pi = 3.14;
-    nvgBeginPath(vg);
-    const float x = 0.05 * width;
-    const float y = 0.5 * height;
+    std::array<float, 4> axis_window = {50, 50, width - 100, height - 100};
+    std::array<float, 4> plot_minmax = {0, -1.1, 1.1, 1};
 
-    nvgMoveTo(vg, x, y);
-    for (int i = 1; i < N; ++i) {
-        const float x = 0.9 * width * i / N + 0.05 * width;
-        const float y =
-            0.5 * height +
-            0.3 * height * std::sin(2 * pi * (x - 0.05 * width) / width);
-        nvgLineTo(vg, x, y);
-    }
-    nvgStrokeColor(vg, nvgRGBA(32, 32, 32, 255));
-    nvgStrokeWidth(vg, 10.0f);
-    nvgStroke(vg);
+    drawAxis(vg, axis_window, plot_minmax);
 
-    nvgFontBlur(vg, 2);
-    nvgFillColor(vg, nvgRGBA(0, 0, 0, 128));
-    nvgText(vg, width - 250, 50, "Thsi is a test", NULL);
-    nvgText(vg, 1.0 / 2, 1.0 / 2, "Thsi is a test", NULL);
+    static float freq1 = 1.0f;
+    static float freq2 = 2.0f;
+    drawPlot(vg, axis_minmax, plot_minmax, 1000, [&](auto x) {
+        return std::sin(freq1 * 6.28 * x) * std::sin(freq2 * 6.28 * x);
+    });
 
-    drawEyes(vg, width - 250, 50, 150, 100, mx, my, 0);
+    ImGui::Begin("Slider Test");
+    ImGui::SliderFloat("frequency 1", &freq1, 1.0f, 10.0f);
+    ImGui::SliderFloat("frequency 2", &freq2, 1.0f, 10.0f);
+    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
+                1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
-    // 1. Show a simple window.
-    // Tip: if we don't call ImGui::Begin()/ImGui::End() the widgets
-    // automatically appears in a window called "Debug".
-    {
-        static float f = 0.0f;
-        static int counter = 0;
-        ImGui::Text("Hello, world!");  // Display some text (you can use a
-                                       // format string too)
-        ImGui::SliderFloat(
-            "float", &f, 0.0f,
-            1.0f);  // Edit 1 float using a slider from 0.0f to 1.0f
-
-        ImGui::SameLine();
-        ImGui::Text("counter = %d", 0);
-
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
-                    1000.0f / ImGui::GetIO().Framerate,
-                    ImGui::GetIO().Framerate);
-    }
-
-    // 2. Show another simple window. In most cases you will use an explicit
-    // Begin/End pair to name your windows.
-    ImGui::Begin("Another Window");
-    ImGui::Text("Hello from another window!");
     ImGui::End();
 }
 
