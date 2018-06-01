@@ -37,6 +37,11 @@ void drawAxis(NVGcontext* vg, std::array<float, 4> window,
     const float& w = window[2];
     const float& h = window[3];
 
+    const float& xmin = minmax[0];
+    const float& ymin = minmax[1];
+    const float& xmax = minmax[2];
+    const float& ymax = minmax[3];
+
     nvgSave(vg);
 
     // axis lines
@@ -60,12 +65,50 @@ void drawAxis(NVGcontext* vg, std::array<float, 4> window,
     nvgStrokeWidth(vg, lw);
     nvgStroke(vg);
 
+    // ticks
+    const int ny_ticks = 5;
+    const float tick_dx = h / ny_ticks;
+    const float tick_dx_y = (ymax - ymin) / ny_ticks;
+    const int nx_ticks = w / tick_dx;
+    const float tick_len = 15.0f;
+    const float tick_dx_x = (xmax - xmin) / nx_ticks;
+
+    nvgBeginPath(vg);
+    nvgFontSize(vg, 18.0f);
+    nvgFontFace(vg, "sans-bold");
+    nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_BOTTOM);
+    nvgFillColor(vg, nvgRGBA(0, 0, 0, 128));
+
+    char buffer[10];
+    for (int i = 0; i < nx_ticks; ++i) {
+        const float tick_pos = x + (i + 0.5) * tick_dx;
+        const float tick_val = xmin + (i + 0.5) * tick_dx_x;
+        nvgMoveTo(vg, tick_pos, y + h + tick_len / 2);
+        nvgLineTo(vg, tick_pos, y + h - tick_len / 2);
+        std::sprintf(buffer, "%1.1f", tick_val);
+        nvgText(vg, tick_pos, y + h + tick_len / 2 + 22, buffer, NULL);
+    }
+    nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+    for (int i = 0; i < ny_ticks; ++i) {
+        const float tick_pos = y + h - (i + 0.5) * tick_dx;
+        const float tick_val = ymin + (i + 0.5) * tick_dx_y;
+        nvgMoveTo(vg, x - tick_len / 2, tick_pos);
+        nvgLineTo(vg, x + tick_len / 2, tick_pos);
+        std::sprintf(buffer, "%1.1f", tick_val);
+        nvgText(vg, x - tick_len / 2 - 27, tick_pos, buffer, NULL);
+    }
+    nvgStrokeColor(vg, nvgRGBA(0, 0, 0, 255));
+    nvgStrokeWidth(vg, lw / 2);
+    nvgStroke(vg);
+
     nvgRestore(vg);
 }
 
 template <typename F>
 void drawPlot(NVGcontext* vg, std::array<float, 4> window,
               std::array<float, 4> minmax, int N, F f) {
+    // TODO: use nanovg transforms so that the plots can be
+    // drawn in the minmax coordinate system
     const float& x = window[0];
     const float& y = window[1];
     const float& w = window[2];
@@ -174,7 +217,26 @@ void init_imgui(GLFWwindow* window) {
 }
 
 NVGcontext* init_nanovg() {
-    return nvgCreateGL3(NVG_ANTIALIAS | NVG_STENCIL_STROKES | NVG_DEBUG);
+    NVGcontext* vg =
+        nvgCreateGL3(NVG_ANTIALIAS | NVG_STENCIL_STROKES | NVG_DEBUG);
+    int fontNormal = nvgCreateFont(vg, "sans", "../font/Roboto-Regular.ttf");
+    if (fontNormal == -1) {
+        printf("Could not add font italic.\n");
+        return nullptr;
+    }
+    int fontBold = nvgCreateFont(vg, "sans-bold", "../font/Roboto-Bold.ttf");
+    if (fontBold == -1) {
+        printf("Could not add font bold.\n");
+        return nullptr;
+    }
+    int fontEmoji = nvgCreateFont(vg, "emoji", "../font/NotoEmoji-Regular.ttf");
+    if (fontEmoji == -1) {
+        printf("Could not add font emoji.\n");
+        return nullptr;
+    }
+    nvgAddFallbackFontId(vg, fontNormal, fontEmoji);
+    nvgAddFallbackFontId(vg, fontBold, fontEmoji);
+    return vg;
 }
 
 void begin_frame(GLFWwindow* window, NVGcontext* vg) {

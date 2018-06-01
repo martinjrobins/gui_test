@@ -9,9 +9,10 @@ $ apt-get install libglfw-dev
 Then compile with cmake:
 
 ```bash
+$ cd /path/to/source
 $ mkdir build
 $ cd build
-$ cmake /path/to/source
+$ cmake ..
 $ make
 ```
 
